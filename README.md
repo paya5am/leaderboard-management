@@ -4,10 +4,10 @@ A real-time leaderboard system that supports efficient score updates, rank retri
 
 ## Key Concepts
 
-- Balanced Binary Search Tree (AVL / Red-Black Tree)
+- Balanced Binary Search Tree (AVL)
   Used to maintain scores in sorted order and support rank queries in logarithmic time.
 
-- Doubly Linked List / Array
+- Doubly Linked List 
   Maintains a list of players and allows quick traversal when needed.
 
 - Order Statistics
@@ -29,9 +29,9 @@ A real-time leaderboard system that supports efficient score updates, rank retri
 
 ## File Structure
 
-leaderboard.h      // Data structure definitions and function declarations  
-leaderboard.c      // Balanced BST and leaderboard operations  
-main.c             // Driver / I/O handling  
+leaderboard.h      // headers required  
+leaderboard.c      // main functions  
+main.c               
 
 ## Compilation
 
@@ -43,7 +43,3 @@ gcc main.c leaderboard.c -o leaderboard
 
 The program will display menu options to add scores, query ranks, retrieve top-K results, and perform range searches.
 
-## Notes
-
-- Average time complexity for operations is O(log n), due to balanced BST usage.
-- Suitable for systems with frequent score updates where accurate ranking must be maintained.
