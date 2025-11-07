@@ -22,8 +22,6 @@ typedef struct Node {
 
 Node* insert(Node *root, int id, const char *team, int score);
 int find_player_score(Node *root, int id);
-
-
 int get_player_rank(Node *root, int id);
 
 
