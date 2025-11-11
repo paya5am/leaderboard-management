@@ -19,7 +19,6 @@ static int read_int(const char *prompt, int *out) {
     if (line[0] == '\0') return 0;
 
     val = strtol(line, &end, 10);
-    /* skip spaces after number */
     while (*end == ' ') end++;
     if (*end != '\0') {
         printf("Invalid input.\n");
@@ -49,28 +48,12 @@ int main(void) {
             printf("Enter: ID Team Score  (example: 7 Alpha 120)\n");
             if (!read_line(line, sizeof(line))) continue;
 
-            char *p = line;
-            char *end;
-            long id_l = strtol(p, &end, 10);
-            if (end == p) { printf("Invalid input.\n"); continue; }
-            while (*end == ' ') end++;
-
-            /* read team as next token (no spaces in name) */
+            int id, score;
             char team[64];
-            int i = 0;
-            while (*end && !isspace((unsigned char)*end) && i < (int)sizeof(team) - 1) {
-                team[i++] = *end++;
+            if (sscanf(line, "%d %63s %d", &id, team, &score) != 3) {
+                printf("Invalid input format.\n");
+                continue;
             }
-            team[i] = '\0';
-            if (i == 0) { printf("Invalid input.\n"); continue; }
-            while (*end == ' ') end++;
-
-            long score_l = strtol(end, &end, 10);
-            while (*end == ' ') end++;
-            if (*end != '\0') { printf("Invalid input.\n"); continue; }
-
-            int id = (int)id_l;
-            int score = (int)score_l;
 
             root = insert(root, id, team, score);
             printf("Added/Updated player: ID=%d Team=%s Score=%d\n", id, team, score);
@@ -103,7 +86,7 @@ int main(void) {
             if (!read_line(line, sizeof(line))) continue;
             int low, high;
             if (sscanf(line, "%d %d", &low, &high) != 2) { printf("Invalid input.\n"); continue; }
-            int printed = range_query(root, low, high);
+            int printed = range_query(root, low, high, root);
             if (printed == 0) printf("No records found.\n");
         }
 

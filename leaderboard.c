@@ -24,29 +24,6 @@ static void update(Node *n) {
     n->size = player_count(n->players) + get_size(n->left) + get_size(n->right);
 }
 
-static void add_or_update_player(PlayerNode **head, int id, const char *team) {
-    PlayerNode *p = *head;
-    while (p) {
-        if (p->id == id) {
-            /* update team */
-            strncpy(p->team, team, sizeof(p->team) - 1);
-            p->team[sizeof(p->team) - 1] = '\0';
-            return;
-        }
-        p = p->next;
-    }
-    /* insert at head */
-    PlayerNode *n = malloc(sizeof(PlayerNode));
-    assert(n);
-    n->id = id;
-    strncpy(n->team, team, sizeof(n->team) - 1);
-    n->team[sizeof(n->team) - 1] = '\0';
-    n->prev = NULL;
-    n->next = *head;
-    if (*head) (*head)->prev = n;
-    *head = n;
-}
-
 static Node* rotate_right(Node *y) {
     Node *x = y->left;
     Node *T2 = x->right;
@@ -71,47 +48,66 @@ static int get_balance(Node *n) {
     return n ? (get_height(n->left) - get_height(n->right)) : 0;
 }
 
-/*  players stored in DLL inside node  */
-
-Node* insert(Node *root, int id, const char *team, int score) {
-    if (!root) {
-        Node *n = malloc(sizeof(Node));
-        assert(n);
-        n->score = score;
-        n->height = 1;
-        n->size = 0; /* to be updated */
-        n->left = n->right = NULL;
-        n->players = NULL;
-        add_or_update_player(&n->players, id, team);
-        update(n);
-        return n;
+/* remove player from a DLL by id */
+static void remove_player(PlayerNode **head, int id) {
+    PlayerNode *p = *head;
+    while (p) {
+        if (p->id == id) {
+            if (p->prev) p->prev->next = p->next;
+            if (p->next) p->next->prev = p->prev;
+            if (p == *head) *head = p->next;
+            free(p);
+            return;
+        }
+        p = p->next;
     }
+}
 
-    if (score < root->score) {
-        root->left = insert(root->left, id, team, score);
-    } else if (score > root->score) {
-        root->right = insert(root->right, id, team, score);
-    } else {
-        /* same score bucket: insert or update player in DLL */
-        add_or_update_player(&root->players, id, team);
+/* move player: remove old score node if empty */
+static Node* delete_player(Node *root, int id, int score) {
+    if (!root) return NULL;
+
+    if (score < root->score)
+        root->left = delete_player(root->left, id, score);
+    else if (score > root->score)
+        root->right = delete_player(root->right, id, score);
+    else {
+        remove_player(&root->players, id);
+        if (!root->players) {
+            if (!root->left) {
+                Node *r = root->right;
+                free(root);
+                return r;
+            } else if (!root->right) {
+                Node *l = root->left;
+                free(root);
+                return l;
+            } else {
+                Node *succ = root->right;
+                while (succ->left) succ = succ->left;
+                root->score = succ->score;
+                root->players = succ->players;
+                succ->players = NULL;
+                root->right = delete_player(root->right, id, root->score);
+            }
+        }
     }
 
     update(root);
-
     int balance = get_balance(root);
-
-    if (balance > 1 && score < root->left->score)
+    if (balance > 1 && get_balance(root->left) >= 0)
         return rotate_right(root);
-    if (balance < -1 && score > root->right->score)
-        return rotate_left(root);
-    if (balance > 1 && score > root->left->score) {
+    if (balance > 1 && get_balance(root->left) < 0) {
         root->left = rotate_left(root->left);
         return rotate_right(root);
     }
-    if (balance < -1 && score < root->right->score) {
+    if (balance < -1 && get_balance(root->right) <= 0)
+        return rotate_left(root);
+    if (balance < -1 && get_balance(root->right) > 0) {
         root->right = rotate_right(root->right);
         return rotate_left(root);
     }
+
     return root;
 }
 
@@ -139,90 +135,132 @@ const char *get_player_team(Node *root, int id) {
     return get_player_team(root->right, id);
 }
 
-static int count_leq(Node *root, int score) {
-    if (!root) return 0;
-    if (score < root->score) {
-        return count_leq(root->left, score);
-    } else if (score > root->score) {
-        return get_size(root->left) + player_count(root->players) + count_leq(root->right, score);
-    } else {
-        return get_size(root->left) + player_count(root->players);
+static void add_player(PlayerNode **head, int id, const char *team) {
+    PlayerNode *n = malloc(sizeof(PlayerNode));
+    n->id = id;
+    strncpy(n->team, team, sizeof(n->team) - 1);
+    n->team[sizeof(n->team) - 1] = '\0';
+    n->prev = NULL;
+    n->next = *head;
+    if (*head) (*head)->prev = n;
+    *head = n;
+}
+
+Node* insert(Node *root, int id, const char *team, int score) {
+    int existing_score = find_player_score(root, id);
+    if (existing_score != -1 && existing_score != score)
+        root = delete_player(root, id, existing_score);
+
+    if (!root) {
+        Node *n = malloc(sizeof(Node));
+        n->score = score;
+        n->height = 1;
+        n->size = 0;
+        n->left = n->right = NULL;
+        n->players = NULL;
+        add_player(&n->players, id, team);
+        update(n);
+        return n;
     }
+
+    if (score < root->score)
+        root->left = insert(root->left, id, team, score);
+    else if (score > root->score)
+        root->right = insert(root->right, id, team, score);
+    else {
+        remove_player(&root->players, id);
+        add_player(&root->players, id, team);
+    }
+
+    update(root);
+    int balance = get_balance(root);
+    if (balance > 1 && score < root->left->score)
+        return rotate_right(root);
+    if (balance < -1 && score > root->right->score)
+        return rotate_left(root);
+    if (balance > 1 && score > root->left->score) {
+        root->left = rotate_left(root->left);
+        return rotate_right(root);
+    }
+    if (balance < -1 && score < root->right->score) {
+        root->right = rotate_right(root->right);
+        return rotate_left(root);
+    }
+    return root;
+}
+
+static int count_greater(Node *root, int score) {
+    if (!root) return 0;
+    if (score < root->score)
+        return get_size(root->right) + player_count(root->players) + count_greater(root->left, score);
+    if (score > root->score)
+        return count_greater(root->right, score);
+    return get_size(root->right);
 }
 
 int get_player_rank(Node *root, int id) {
     int score = find_player_score(root, id);
     if (score == -1) return -1;
-    int total = get_size(root);
-    int leq = count_leq(root, score);
-    /* rank 1 == highest */
-    return total - leq + 1;
+    return count_greater(root, score) + 1;
 }
 
-static void topk_rec(Node *root, int *k_left, int *printed) {
+static void topk_rec(Node *root, int *k_left, Node *root_ref) {
     if (!root || *k_left <= 0) return;
-    topk_rec(root->right, k_left, printed);
-    if (*k_left <= 0) return;
+    topk_rec(root->right, k_left, root_ref);
     PlayerNode *p = root->players;
     while (p && *k_left > 0) {
-        int rank = get_player_rank(root, p->id);
-        printf("Rank %d | ID %d | Team %s | Score %d\n",
-               rank, p->id, p->team, root->score);
+        int rank = get_player_rank(root_ref, p->id);
+        printf("Rank %d | ID %d | Team %s | Score %d\n", rank, p->id, p->team, root->score);
         p = p->next;
         (*k_left)--;
-        (*printed)++;
     }
-    if (*k_left <= 0) return;
-    topk_rec(root->left, k_left, printed);
+    topk_rec(root->left, k_left, root_ref);
 }
 
 int top_k(Node *root, int k) {
     if (!root || k <= 0) return 0;
-    int printed = 0;
-    topk_rec(root, &k, &printed);
-    return printed;
+    int left = k;
+    topk_rec(root, &left, root);
+    return k - left;
 }
 
-static int range_rec(Node *root, int low, int high) {
+static int display_all_rec(Node *root, Node *root_ref) {
+    if (!root) return 0;
+    int c = 0;
+    c += display_all_rec(root->right, root_ref);
+    PlayerNode *p = root->players;
+    while (p) {
+        int rank = get_player_rank(root_ref, p->id);
+        printf("Rank %d | ID %d | Team %s | Score %d\n", rank, p->id, p->team, root->score);
+        p = p->next;
+        c++;
+    }
+    c += display_all_rec(root->left, root_ref);
+    return c;
+}
+
+int display_all(Node *root) {
+    return display_all_rec(root, root);
+}
+
+int range_query(Node *root, int low, int high, Node *global_root) {
     if (!root) return 0;
     int count = 0;
-    if (root->score > low) count += range_rec(root->left, low, high);
+    if (root->score > low)
+        count += range_query(root->left, low, high, global_root);
     if (root->score >= low && root->score <= high) {
         PlayerNode *p = root->players;
         while (p) {
-            int rank = get_player_rank(root, p->id);
+            int rank = get_player_rank(global_root, p->id); 
             printf("Rank %d | ID %d | Team %s | Score %d\n",
                    rank, p->id, p->team, root->score);
             p = p->next;
             count++;
         }
     }
-    if (root->score < high) count += range_rec(root->right, low, high);
+    if (root->score < high)
+        count += range_query(root->right, low, high, global_root);
     return count;
 }
 
-int range_query(Node *root, int low, int high) {
-    if (low > high) return 0;
-    return range_rec(root, low, high);
-}
-
-static int display_all_rec(Node *root) {
-    if (!root) return 0;
-    int count = 0;
-    count += display_all_rec(root->right);
-    PlayerNode *p = root->players;
-    while (p) {
-        int rank = get_player_rank(root, p->id);
-        printf("Rank %d | ID %d | Team %s | Score %d\n",
-               rank, p->id, p->team, root->score);
-        p = p->next;
-        count++;
-    }
-    count += display_all_rec(root->left);
-    return count;
-}
-
-int display_all(Node *root) {
-    return display_all_rec(root);
-}
 
