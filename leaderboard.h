@@ -19,15 +19,13 @@ typedef struct Node {
     struct Node *right;
 } Node;
 
-
 Node* insert(Node *root, int id, const char *team, int score);
 int find_player_score(Node *root, int id);
-
-
 int get_player_rank(Node *root, int id);
 
-
 void top_k(Node *root, int *k);
-void range_query(Node *root, int low, int high);
+int range_query(Node *root, int low, int high);   // now returns count
+int display_all(Node *root);                      // new function
 
 #endif
+
