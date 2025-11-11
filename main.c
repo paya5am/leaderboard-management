@@ -1,4 +1,3 @@
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -11,6 +10,7 @@ static int read_line(char *buf, size_t n) {
     return 1;
 }
 
+/* Fixed: read_int handles invalid (non-numeric) input safely */
 static int read_int(const char *prompt, int *out) {
     char line[256];
     char *end;
@@ -19,13 +19,20 @@ static int read_int(const char *prompt, int *out) {
     printf("%s", prompt);
     if (!read_line(line, sizeof(line))) return 0;
 
-    val = strtol(line, &end, 10);
-    while (*end == ' ') end++;
+    if (line[0] == '\0') return 0;
+    for (int i = 0; line[i]; i++) {
+        if (!isdigit(line[i]) && line[i] != '-' && line[i] != '+') {
+            printf("Invalid input.\n");
+            return 0;
+        }
+    }
 
+    val = strtol(line, &end, 10);
     if (*end != '\0') {
         printf("Invalid input.\n");
         return 0;
     }
+
     *out = (int)val;
     return 1;
 }
@@ -42,7 +49,8 @@ int main() {
         printf("2. Get rank of player by ID\n");
         printf("3. Top-K players\n");
         printf("4. Range query by score\n");
-        printf("5. Exit\n");
+        printf("5. Display all\n");
+        printf("6. Exit\n");
 
         if (!read_int("Enter choice: ", &choice)) continue;
 
@@ -76,13 +84,14 @@ int main() {
         else if (choice == 2) {
             if (!read_int("Enter ID: ", &id)) continue;
             int r = get_player_rank(root, id);
-            if (r == -1) printf("Not found.\n");
+            if (r == -1) printf("No records found.\n");
             else printf("Rank: %d\n", r);
         }
 
         else if (choice == 3) {
             if (!read_int("Enter K: ", &k)) continue;
             if (k <= 0) { printf("\n**Invalid input.**\n"); continue; }
+            printf("\n-- Top %d Players --\n", k);
             top_k(root, &k);
         }
 
@@ -95,10 +104,19 @@ int main() {
                 printf("\n**Invalid input.**\n");
                 continue;
             }
-            range_query(root, low, high);
+
+            int count = range_query(root, low, high);
+            if (count == 0)
+                printf("No records found.\n");
         }
 
         else if (choice == 5) {
+            int count = display_all(root);
+            if (count == 0)
+                printf("No records found.\n");
+        }
+
+        else if (choice == 6) {
             return 0;
         }
 
@@ -107,3 +125,4 @@ int main() {
         }
     }
 }
+

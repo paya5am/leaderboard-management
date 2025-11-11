@@ -144,18 +144,40 @@ void top_k(Node *root, int *k) {
     top_k(root->left, k);
 }
 
-void range_query(Node *root, int low, int high) {
-    if (!root) return;
+
+int range_query(Node *root, int low, int high) {
+    if (!root) return 0;
+    int count = 0;
+
     if (root->score > low)
-        range_query(root->left, low, high);
+        count += range_query(root->left, low, high);
+
     if (root->score >= low && root->score <= high) {
         PlayerNode *p = root->players;
         while (p) {
             printf("ID %d | Team %s | Score %d\n", p->id, p->team, root->score);
             p = p->next;
+            count++;
         }
     }
+
     if (root->score < high)
-        range_query(root->right, low, high);
+        count += range_query(root->right, low, high);
+
+    return count;
+}
+
+int display_all(Node *root) {
+    if (!root) return 0;
+    int count = 0;
+    count += display_all(root->right);
+    PlayerNode *p = root->players;
+    while (p) {
+        printf("ID %d | Team %s | Score %d\n", p->id, p->team, root->score);
+        p = p->next;
+        count++;
+    }
+    count += display_all(root->left);
+    return count;
 }
 
