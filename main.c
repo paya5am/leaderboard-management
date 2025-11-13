@@ -40,7 +40,10 @@ int main(void) {
         printf("3. Top-K players\n");
         printf("4. Range query by score\n");
         printf("5. Display all players\n");
-        printf("6. Exit\n");
+        printf("6. Load already existing leaderboard\n");
+        printf("7. Save Snapshot of Leaderboard\n");
+        printf("8. Clear file\n");
+        printf("9. Exit\n");
 
         if (!read_int("Enter choice: ", &choice)) continue;
 
@@ -94,11 +97,27 @@ int main(void) {
             int printed = display_all(root);
             if (printed == 0) printf("No records found.\n");
         }
+        
+        else if (choice == 7) {
+          if (save_to_csv(root, "leaderboard.csv"))
+          printf("Saved successfully.\n");
+        }
 
-        else if (choice == 6) {
+      else if (choice == 6) {
+          Node *temp = load_from_csv("leaderboard.csv");
+          if (temp) root = temp;
+      }
+
+        else if (choice == 9) {
             printf("Exiting.\n");
             break;
         }
+        
+        else if (choice == 8) {
+          if (clear_csv("leaderboard.csv"))
+          printf("Leaderboard file cleared.\n");
+          }
+
 
         else {
             printf("Invalid option.\n");

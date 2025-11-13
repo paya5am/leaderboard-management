@@ -31,5 +31,11 @@ int display_all(Node *root);
 
 int get_size(Node *root);
 
+Node* load_from_csv(const char *filename);
+int save_to_csv(Node *root, const char *filename);
+void save_rec(Node *node, FILE *file);
+int clear_csv(const char *filename);
+
+
 #endif
 

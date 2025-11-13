@@ -16,15 +16,15 @@ int get_size(Node *n) {
     return n ? n->size : 0;
 }
 
-static int get_height(Node *n) { return n ? n->height : 0; }
+ int get_height(Node *n) { return n ? n->height : 0; }
 
-static void update(Node *n) {
+ void update(Node *n) {
     if (!n) return;
     n->height = 1 + max(get_height(n->left), get_height(n->right));
     n->size = player_count(n->players) + get_size(n->left) + get_size(n->right);
 }
 
-static Node* rotate_right(Node *y) {
+ Node* rotate_right(Node *y) {
     Node *x = y->left;
     Node *T2 = x->right;
     x->right = y;
@@ -34,7 +34,7 @@ static Node* rotate_right(Node *y) {
     return x;
 }
 
-static Node* rotate_left(Node *x) {
+ Node* rotate_left(Node *x) {
     Node *y = x->right;
     Node *T2 = y->left;
     y->left = x;
@@ -44,12 +44,12 @@ static Node* rotate_left(Node *x) {
     return y;
 }
 
-static int get_balance(Node *n) {
+ int get_balance(Node *n) {
     return n ? (get_height(n->left) - get_height(n->right)) : 0;
 }
 
 /* remove player from a DLL by id */
-static void remove_player(PlayerNode **head, int id) {
+ void remove_player(PlayerNode **head, int id) {
     PlayerNode *p = *head;
     while (p) {
         if (p->id == id) {
@@ -64,7 +64,7 @@ static void remove_player(PlayerNode **head, int id) {
 }
 
 /* move player: remove old score node if empty */
-static Node* delete_player(Node *root, int id, int score) {
+ Node* delete_player(Node *root, int id, int score) {
     if (!root) return NULL;
 
     if (score < root->score)
@@ -135,7 +135,7 @@ const char *get_player_team(Node *root, int id) {
     return get_player_team(root->right, id);
 }
 
-static void add_player(PlayerNode **head, int id, const char *team) {
+ void add_player(PlayerNode **head, int id, const char *team) {
     PlayerNode *n = malloc(sizeof(PlayerNode));
     n->id = id;
     strncpy(n->team, team, sizeof(n->team) - 1);
@@ -189,7 +189,7 @@ Node* insert(Node *root, int id, const char *team, int score) {
     return root;
 }
 
-static int count_greater(Node *root, int score) {
+ int count_greater(Node *root, int score) {
     if (!root) return 0;
     if (score < root->score)
         return get_size(root->right) + player_count(root->players) + count_greater(root->left, score);
@@ -204,7 +204,7 @@ int get_player_rank(Node *root, int id) {
     return count_greater(root, score) + 1;
 }
 
-static void topk_rec(Node *root, int *k_left, Node *root_ref) {
+ void topk_rec(Node *root, int *k_left, Node *root_ref) {
     if (!root || *k_left <= 0) return;
     topk_rec(root->right, k_left, root_ref);
     PlayerNode *p = root->players;
@@ -224,7 +224,7 @@ int top_k(Node *root, int k) {
     return k - left;
 }
 
-static int display_all_rec(Node *root, Node *root_ref) {
+ int display_all_rec(Node *root, Node *root_ref) {
     if (!root) return 0;
     int c = 0;
     c += display_all_rec(root->right, root_ref);
@@ -262,5 +262,70 @@ int range_query(Node *root, int low, int high, Node *global_root) {
         count += range_query(root->right, low, high, global_root);
     return count;
 }
+void save_rec(Node *node, FILE *file) {
+        if (!node) return;
+        save_rec(node->right, file);
+        PlayerNode *p = node->players;
+        while (p) {
+            fprintf(file, "%d,%s,%d\n", p->id, p->team, node->score);
+            p = p->next;
+        }
+        save_rec(node->left, file);
+    }
 
+Node* load_from_csv(const char *filename) {
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        printf("No existing data file found: %s\n", filename);
+        return NULL;
+    }
+
+    Node *root = NULL;
+    int id, score;
+    char team[64];
+    int found = 0;
+
+    while (fscanf(fp, "%d,%63[^,],%d", &id, team, &score) == 3) {
+        root = insert(root, id, team, score);
+        found = 1;
+    }
+
+    fclose(fp);
+
+    if (!found) {
+        printf("File %s is empty or invalid.\n", filename);
+        return NULL;
+    }
+
+    printf("Data loaded successfully from %s.\n", filename);
+    return root;
+}
+
+int save_to_csv(Node *root, const char *filename) {
+    if (!root) {
+        printf("Nothing available to save.\n");
+        return 0;
+    }
+
+    FILE *fp = fopen(filename, "a"); // append mode
+    if (!fp) {
+        printf("Error: Unable to open %s for writing.\n", filename);
+        return 0;
+    }
+    
+    save_rec(root, fp);
+    fclose(fp);
+    printf("Snapshot saved successfully to %s.\n", filename);
+    return 1;
+}
+int clear_csv(const char *filename) {
+    FILE *fp = fopen(filename, "w");  
+    if (!fp) {
+        printf("Error: Unable to clear %s.\n", filename);
+        return 0;
+    }
+    fclose(fp);
+    printf("%s cleared successfully.\n", filename);
+    return 1;
+}
 
